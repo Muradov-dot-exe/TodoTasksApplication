@@ -1,0 +1,53 @@
+version: '3.9'
+services:
+    postgres:
+        image: postgres:16.3-alpine
+        ports:
+            - '5432:5432'
+        environment:
+            - POSTGRES_USER=groupAPI
+            - POSTGRES_PASSWORD=123456789
+        healthcheck:
+            test: pg_isready -U groupAPI
+
+    backend:
+        env_file:
+            - ./backend/.env.docker
+        build:
+            context: ./backend
+            dockerfile: ./Dockerfile
+        volumes:
+            - /app/node_modules
+            - ./backend/config:/app/config
+            - ./backend/src:/app/src
+            - ./backend/test:/app/test
+        ports:
+            - '5000:5000'
+        depends_on:
+            postgres:
+                condition: service_healthy
+            file-server:
+                condition: service_started
+
+    frontend:
+        env_file:
+            - ./frontend/.env.docker
+        build: ./frontend
+        volumes:
+            - /app/node_modules
+            - ./frontend:/app
+        ports:
+            - '80:80'
+        depends_on:
+            - backend
+
+    file-server:
+        image: mayth/simple-upload-server:latest
+        ports:
+            - '9001:9001'
+        volumes:
+            - docroot:/docroot
+        command: -document_root=/docroot -addr=:9001 -max_upload_size=10485760
+
+volumes:
+    docroot:
